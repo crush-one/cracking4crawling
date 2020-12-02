@@ -4,6 +4,7 @@ idna==2.10
 Js2Py==0.70
 numpy==1.19.4
 opencv-python==4.4.0.46
+pyDes==2.0.1
 pyjsparser==2.7.1
 pytz==2020.4
 requests==2.25.0

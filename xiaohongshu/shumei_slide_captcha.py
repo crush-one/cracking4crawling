@@ -4,16 +4,15 @@
 
 import base64
 import json
-import os
 import random
 import re
 import time
 from io import BytesIO
 
 import cv2
-import js2py
 import numpy as np
 import requests
+from pyDes import des, ECB
 from requests.packages.urllib3 import disable_warnings
 
 requests.packages.urllib3.disable_warnings()
@@ -23,23 +22,15 @@ CAPTCHA_DISPLAY_HEIGHT = 155
 
 p = {}
 
-with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'get_encrypt_content.js'), 'r',
-          encoding='utf-8') as f:
-    get_encrypt_content_js = ''.join(f.readlines())
 
-get_encrypt_content_func = js2py.eval_js(get_encrypt_content_js)
-
-
-def byte_array_to_str(a):
-    return ''.join([chr(i) for i in a])
-
-
-def bytes_to_byte_array(b):
-    return list(bytearray(b))
-
-
-def byte_array_to_bytes(a):
-    return bytes(bytearray(a))
+def pad(b):
+    """
+    块填充
+    """
+    block_size = 8
+    while len(b) % block_size:
+        b += b'\0'
+    return b
 
 
 def split_args(s):
@@ -99,11 +90,12 @@ def get_encrypt_content(message, key, flag):
     """
     接口参数的加密、解密
     """
+    des_obj = des(key.encode(), mode=ECB)
     if flag:
-        r = get_encrypt_content_func(str(message).replace(' ', ''), key, flag, 0)
-        return base64.b64encode(byte_array_to_bytes(r)).decode('utf-8')
+        content = pad(str(message).replace(' ', '').encode())
+        return base64.b64encode(des_obj.encrypt(content)).decode('utf-8')
     else:
-        return byte_array_to_str(get_encrypt_content_func(bytes_to_byte_array(base64.b64decode(message)), key, flag, 0))
+        return des_obj.decrypt(base64.b64decode(message)).decode('utf-8')
 
 
 def get_random_ge(distance):
