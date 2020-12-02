@@ -1,0 +1,12 @@
+certifi==2020.11.8
+chardet==3.0.4
+idna==2.10
+Js2Py==0.70
+numpy==1.19.4
+opencv-python==4.4.0.46
+pyjsparser==2.7.1
+pytz==2020.4
+requests==2.25.0
+six==1.15.0
+tzlocal==2.1
+urllib3==1.26.2
