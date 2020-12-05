@@ -3,6 +3,7 @@
 
 - [小红书App接口签名（shield）](#小红书App接口签名shield)（2020.12.02）
 - [小红书滑块（数美）验证破解](#小红书滑块数美验证破解)（2020.12.02）
+- [海南航空App接口签名（hnairSign）](#海南航空App接口签名hnairSign)（2020.12.05）
 
 ## 说明：
 
@@ -14,32 +15,43 @@
 
 #### 小红书App接口签名（shield）
 
-shield是小红书App接口主要的签名，由path、params、data、xy_common_params、xy_platform_info拼接并加密生成。原始加密在`libshield.so`中，已用python复现。
+shield是小红书App接口主要的签名，由path、params、xy_common_params、xy_platform_info、data拼接并加密生成。原始加密在libshield.so中，已用python复现。
 
 ```python
+from urllib import parse
+
 from xiaohongshu.shield import get_sign
 
-# 待签名内容
-content = '/api/sns/v4/note/user/posteduser_id=5eeb209d000000000101d84a&sub_tag_id=&cursor=5fa0c1730000000001008b0e&num=10&use_cursor=true&pin_note_id=&pin_note_ids=fid=1605335236101e0d28eb076dacfe290f2edc95ed7d21&device_fingerprint=202011141057245b5a8f26510e7fd80a6a846eb03732900192dede8e36bb58&device_fingerprint1=202011141057245b5a8f26510e7fd80a6a846eb03732900192dede8e36bb58&launch_id=1606097486&tz=Asia%2FShanghai&channel=YingYongBao&versionName=6.68.1&deviceId=10cf4b49-52d7-344d-887c-1ddcc9698557&platform=android&sid=session.1605335582221986643580&identifier_flag=2&t=1606097965&x_trace_page_current=user_page&lang=zh-Hans&uis=lightplatform=android&build=6681005&deviceId=10cf4b49-52d7-344d-887c-1ddcc9698557'
+# 对接口路径、url参数、header中的xy-common-params、xy-platform-info、请求的data进行签名
+path = '/api/sns/v4/note/user/posted'
 
-# content的拼接规则可参考get_sign内部代码
-# get_sign也支持传入各个参数（path、params、data、xy_common_params、xy_platform_info）
-# 注意，dict类型的参数传入之前需要进行url编码，可使用urllib.parse.urlencode
+params = parse.urlencode({'user_id': '5eeb209d000000000101d84a'})
 
-sign = get_sign(content=content)
+xy_common_params = parse.urlencode({})
+    
+xy_platform_info = parse.urlencode({})
+
+data = parse.urlencode({})
+
+# 生成签名
+sign = get_sign(path=path, 
+                params=params, 
+                xy_common_params=xy_common_params, 
+                xy_platform_info=xy_platform_info,
+                data=data)
 print(sign)
 ```
 
 #### 小红书滑块（数美）验证破解
 
-小红书使用数美滑块验证码，验证过程（获取验证码配置>获取验证码>提交验证）在数美的服务器（数美使用`organization`来识别被验证的网站、App）上进行，完成后将通过的`rid`提交到小红书的接口。
+小红书使用数美滑块验证码，验证过程（获取验证码配置>获取验证码>提交验证）在数美的服务器（数美使用organization来识别被验证的网站、App）上进行，完成后将通过的rid提交到小红书的接口。
 
 具体实现细节：
 
-- 协议更新：数美会定期自动更新js和接口参数字段（接口里所有两个字母组成的字段名都会在更新修改），通过`/ca/v1/conf`接口返回的js路径可以判断协议版本（如/pr/auto-build/v1.0.1-33/captcha-sdk.min.js，表示协议版本号为33），脚本会加载js，并通过匹配确认字段名，用于后续的接口请求。
-- 验证参数：验证主要需要三个参数：位移比率、时间、轨迹，使用`opencv`中的`matchTemplate`函数计算距离，并随机生成相应的轨迹。
+- 协议更新：数美会定期自动更新js和接口参数字段（接口里所有两个字母组成的字段名都会在更新修改），通过"/ca/v1/conf"接口返回的js路径可以判断协议版本（如"/pr/auto-build/v1.0.1-33/captcha-sdk.min.js"，表示协议版本号为33），脚本会加载js，并通过匹配确认字段名，用于后续的接口请求。
+- 验证参数：验证主要需要三个参数：位移比率、时间、轨迹，使用opencv中的matchTemplate函数计算距离，并随机生成相应的轨迹。
 - 调用加密：提交验证的主要参数都需要加密，使用DES加密。
-- 加密过程：`/ca/v1/register`接口会返回一个参数k，使用'sshummei'作为key对它解密，结果为加密参数所需的key，再对参数进行加密。
+- 加密过程："/ca/v1/register"接口会返回一个参数k，使用"sshummei"作为key对它解密，结果为加密参数所需的key，再对参数进行加密。
 
 注：当前的验证参数全部按照小红书App调整，用于其他验证（如小红书Web或其他网站、App），可能需要调整其中参数。
 
@@ -59,5 +71,43 @@ if r['riskLevel'] == 'PASS':
     # 这里需要向小红书提交rid
     # 具体可抓包查看，接口：/api/sns/v1/system_service/slide_captcha_check
     pass
+```
+
+### 海南航空
+
+#### 海南航空App接口签名（hnairSign）
+
+签名对象主要是请求的data，取common、data下的全部参数，按字典序排序进行拼接（list、dict类型不参与拼接），结尾加上slat，进行HMAC_SHA1加密生成。
+
+注："/user/"下的接口加签时，会在拼接的内容前加上token，同时HMAC_SHA1加密会使用服务器返回的secret
+
+```python
+from hnair.hna_signature
+
+# 对请求的data进行签名
+data = {
+    'common': {
+        # common的内容
+    },
+    'data': {
+        'adultCount': 1,
+        'cabins': ['*'],
+        'childCount': 0,
+        'depDate': '2020-12-09',
+        'dstCode': 'PEK',
+        'infantCount': 0,
+        'orgCode': 'YYZ',
+        'tripType': 1,
+        'type': 3
+    }
+}
+
+# /user/ 路径下的接口需要登录，同时加签要传入token、secret（都由服务器返回）
+# token = ''
+# secret = ''
+
+# 生成签名
+sign = get_sign(data=data)
+print(sign)
 ```
 

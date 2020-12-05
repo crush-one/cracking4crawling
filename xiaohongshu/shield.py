@@ -4,6 +4,7 @@
 
 from functools import reduce
 from operator import add
+from urllib import parse
 
 APK_VERSION = '6.68.1'
 
@@ -556,11 +557,11 @@ def sub_2dd88(a1, a2):
     return a1, a2
 
 
-def get_sign(path='', params='', data='', xy_common_params='', xy_platform_info='', content=''):
+def get_sign(path='', params='', xy_common_params='', xy_platform_info='', data=''):
     """
     生成签名
     """
-    content = bytearray(content or ''.join([path, params, xy_common_params, xy_platform_info, data]), encoding='utf-8')
+    content = bytearray(''.join([path, params, xy_common_params, xy_platform_info, data]), encoding='utf-8')
     ctx = make_ctx()
     t1 = bytearray(16)
     t2 = bytearray(44)
@@ -577,21 +578,24 @@ def get_sign(path='', params='', data='', xy_common_params='', xy_platform_info=
 
 
 def test():
-    # 待签名内容
-    content = '/api/sns/v4/note/user/posteduser_id=5eeb209d000000000101d84a&sub_tag_id=&cursor=5fa0c1730000000' \
-              '001008b0e&num=10&use_cursor=true&pin_note_id=&pin_note_ids=fid=1605335236101e0d28eb076dacfe290f' \
-              '2edc95ed7d21&device_fingerprint=202011141057245b5a8f26510e7fd80a6a846eb03732900192dede8e36bb58&' \
-              'device_fingerprint1=202011141057245b5a8f26510e7fd80a6a846eb03732900192dede8e36bb58&launch_id=16' \
-              '06097486&tz=Asia%2FShanghai&channel=YingYongBao&versionName=6.68.1&deviceId=10cf4b49-52d7-344d-' \
-              '887c-1ddcc9123456&platform=android&sid=session.1605335583221986123456&identifier_flag=2&t=16060' \
-              '97965&x_trace_page_current=user_page&lang=zh-Hans&uis=lightplatform=android&build=6681005&devic' \
-              'eId=10cf4b49-52d7-344d-887c-1ddcc9123456'
+    # 对接口路径、url参数、header中的xy-common-params、xy-platform-info、请求的data进行签名
+    path = '/api/sns/v4/note/user/posted'
 
-    # content的拼接规则可参考get_sign内部代码
-    # get_sign也支持传入各个参数（path、params、data、xy_common_params、xy_platform_info）
-    # 注意，dict类型的参数传入之前需要进行url编码，可使用urllib.parse.urlencode
+    params = parse.urlencode({'user_id': '5eeb209d000000000101d84a'})
 
-    sign = get_sign(content=content)
+    xy_common_params = parse.urlencode({})
+
+    xy_platform_info = parse.urlencode({})
+
+    data = parse.urlencode({})
+
+    # 生成签名
+    sign = get_sign(path=path,
+                    params=params,
+                    xy_common_params=xy_common_params,
+                    xy_platform_info=xy_platform_info,
+                    data=data)
+
     print(sign)
 
 
