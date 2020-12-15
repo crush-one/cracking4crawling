@@ -6,7 +6,7 @@ from functools import reduce
 from operator import add
 from urllib import parse
 
-APK_VERSION = '6.68.1'
+__apk_version__ = '6.68.1'
 
 
 def bytes_to_int32(t):

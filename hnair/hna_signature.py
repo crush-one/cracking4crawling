@@ -5,7 +5,7 @@
 import hmac
 from hashlib import sha1
 
-APK_VERSION = '8.5.1'
+__apk_version__ = '8.5.1'
 
 
 def get_sign(data=None, token='', secret='21047C596EAD45209346AE29F0350491'):

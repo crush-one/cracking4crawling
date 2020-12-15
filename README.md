@@ -3,6 +3,7 @@
 
 - [小红书App接口签名（shield）](#小红书App接口签名shield)（2020.12.02）
 - [小红书滑块（数美）验证破解](#小红书滑块数美验证破解)（2020.12.02）
+- [小红书h5接口签名（X-Sign）](#小红书h5接口签名X-Sign)（2020.12.15）
 - [海南航空App接口签名（hnairSign）](#海南航空App接口签名hnairSign)（2020.12.05）
 
 ## 说明：
@@ -71,6 +72,26 @@ if r['riskLevel'] == 'PASS':
     # 这里需要向小红书提交rid
     # 具体可抓包查看，接口：/api/sns/v1/system_service/slide_captcha_check
     pass
+```
+
+#### 小红书h5接口签名（X-Sign）
+
+小红书App中的一些页面使用h5实现，相关接口请求头需要带上X-Sign，X-Sign生成规则为：对接口路径、url参数进行拼接，在结尾加上字符串“WSUDD”，对组合之后的字符串进行md5加密，最后在结果开头加上“X”。
+
+```python
+from xiaohongshu.x_sign import get_sign
+
+# 对接口路径、url参数进行签名
+path = '/fe_api/burdock/v2/page/5a43849c8000862471d1625e/media'
+
+params = {
+    'page': 1,
+    'pageSize': 20
+}
+
+# 生成签名
+sign = get_sign(path, params)
+print(sign)
 ```
 
 ### 海南航空
