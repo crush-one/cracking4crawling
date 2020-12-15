@@ -8,7 +8,7 @@ from urllib import parse
 
 def hash_md5(s):
     """
-    md5
+    md5加密
     """
     return hashlib.md5(s.encode('utf-8')).hexdigest()
 

@@ -17,13 +17,25 @@ from requests.packages.urllib3 import disable_warnings
 
 requests.packages.urllib3.disable_warnings()
 
-CAPTCHA_DISPLAY_WIDTH = 310
-CAPTCHA_DISPLAY_HEIGHT = 155
+import base64
+import json
+import random
+import re
+import time
+from io import BytesIO
 
-p = {}
+import cv2
+import numpy as np
+import requests
+from pyDes import des, ECB
+from requests.packages.urllib3 import disable_warnings
+
+requests.packages.urllib3.disable_warnings()
+
+param_names = {}
 
 
-def pad(b):
+def padding(b):
     """
     块填充
     """
@@ -52,21 +64,31 @@ def split_args(s):
     return r
 
 
-def find_arg_names(script):
+def hex2int(t):
     """
-    通过js解析出参数名
+    十六进制字符串转int
+    """
+    return int(t, base=16)
+
+
+def parser_param_names(script):
+    """
+    通过js解析出参数字段名
     """
     names = {}
 
+    # 取所有参数名
     a = []
     for r in re.findall(r'function\((.*?)\)', script):
         if len(r.split(',')) > 100:
             a = split_args(r)
             break
 
-    r = re.search(r';\)(.*?)\(}', script[::-1]).group(1)
+    # 取所有传入的参数
+    r = re.search(r';\)\)(.*?)\(}', script[::-1]).group(1)
     v = split_args(r[::-1])
 
+    # 取接口字段名对应的参数变量
     d = r'{%s}' % ''.join([((',' if i else '') + '\'k{}\':([_x0-9a-z]*)'.format(i + 1)) for i in range(15)])
 
     k = []
@@ -74,11 +96,16 @@ def find_arg_names(script):
     for i in range(15):
         k.append(r.group(i + 1))
 
-    n = int(v[a.index(re.search(r'arguments;.*?,(.*?)\);', script).group(1))], base=16)
+    try:
+        n = hex2int(v[a.index(re.search(r'arguments;.*?,(.*?)\);', script).group(1))]) // 2
+    except ValueError:
+        m = re.search(r'arguments;.*?,.*?,.*?]\((.*?),(.*?)\)', script)
+        n = hex2int(v[a.index(m.group(1))]) // hex2int(v[a.index(m.group(2))])
 
-    for i in range(n // 2):
+    for i in range(n):
         v[i], v[n - 1 - i] = v[n - 1 - i], v[i]
 
+    # 对接口字段的值进行对应
     for i, b in enumerate(k):
         t = v[a.index(b)].strip('\'')
         names['k{}'.format(i + 1)] = t if len(t) > 2 else t[::-1]
@@ -92,17 +119,16 @@ def get_encrypt_content(message, key, flag):
     """
     des_obj = des(key.encode(), mode=ECB)
     if flag:
-        content = pad(str(message).replace(' ', '').encode())
+        content = padding(str(message).replace(' ', '').encode())
         return base64.b64encode(des_obj.encrypt(content)).decode('utf-8')
-    else:
-        return des_obj.decrypt(base64.b64decode(message)).decode('utf-8')
+    return des_obj.decrypt(base64.b64decode(message)).decode('utf-8')
 
 
-def get_random_ge(distance):
+def get_tracks(distance):
     """
     生成随机的轨迹
     """
-    ge = []
+    tracks = []
 
     y = 0
     v = 0
@@ -112,7 +138,7 @@ def get_random_ge(distance):
     exceed = 20
     z = t
 
-    ge.append([0, 0, 1])
+    tracks.append([0, 0, 1])
 
     while current < (distance + exceed):
         if current < mid / 2:
@@ -130,34 +156,34 @@ def get_random_ge(distance):
         y += random.randint(-5, 5)
         z += 100 + random.randint(0, 10)
 
-        ge.append([min(current, (distance + exceed)), y, z])
+        tracks.append([min(current, (distance + exceed)), y, z])
 
     while exceed > 0:
         exceed -= random.randint(0, 5)
         y += random.randint(-5, 5)
         z += 100 + random.randint(0, 10)
-        ge.append([min(current, (distance + exceed)), y, z])
+        tracks.append([min(current, (distance + exceed)), y, z])
 
-    return ge
+    return tracks
 
 
-def make_mouse_action_args(distance):
+def get_mouse_action_params(distance, captcha_width, captcha_height):
     """
     生成鼠标行为相关的参数
     """
-    ge = get_random_ge(distance)
-    args = {
-        p['k']['k5']: round(distance / CAPTCHA_DISPLAY_WIDTH, 2),
-        p['k']['k6']: get_random_ge(distance),
-        p['k']['k7']: ge[-1][-1] + random.randint(0, 100),
-        p['k']['k8']: CAPTCHA_DISPLAY_WIDTH,
-        p['k']['k9']: CAPTCHA_DISPLAY_HEIGHT,
-        p['k']['k11']: 1,
-        p['k']['k12']: 0,
-        p['k']['k13']: -1,
+    tracks = get_tracks(distance)
+    params = {
+        param_names['k5']: round(distance / captcha_width, 2),
+        param_names['k6']: get_tracks(distance),
+        param_names['k7']: tracks[-1][-1] + random.randint(0, 100),
+        param_names['k8']: captcha_width,
+        param_names['k9']: captcha_height,
+        param_names['k11']: 1,
+        param_names['k12']: 0,
+        param_names['k13']: -1,
         'act.os': 'android'
     }
-    return args
+    return params
 
 
 def get_distance(fg, bg):
@@ -171,16 +197,16 @@ def get_distance(fg, bg):
     return distance
 
 
-def update_protocol(protocol_num, js_uri):
+def update_param_names(protocol_num, js_uri):
     """
-    更新协议
+    更新接口字段名
     """
-    global p
+    global param_names
     r = requests.get(js_uri, verify=False)
-    names = find_arg_names(r.text)
-    p = {
+    names = parser_param_names(r.text)
+    param_names = {
         'i': protocol_num,
-        'k': names
+        **names
     }
 
 
@@ -190,7 +216,7 @@ def conf_captcha(organization):
     """
     url = 'https://captcha.fengkongcloud.com/ca/v1/conf'
 
-    args = {
+    params = {
         'organization': organization,
         'model': 'slide',
         'sdkver': '1.1.3',
@@ -201,8 +227,8 @@ def conf_captcha(organization):
         'callback': 'sm_{}'.format(int(time.time() * 1000))
     }
 
-    r = requests.get(url, params=args, verify=False)
-    resp = json.loads(re.search(r'{}\((.*)\)'.format(args['callback']), r.text).group(1))
+    r = requests.get(url, params=params, verify=False)
+    resp = json.loads(re.search(r'{}\((.*)\)'.format(params['callback']), r.text).group(1))
 
     return resp
 
@@ -213,7 +239,7 @@ def register_captcha(organization):
     """
     url = 'https://captcha.fengkongcloud.com/ca/v1/register'
 
-    args = {
+    params = {
         'organization': organization,
         'channel': 'YingYongBao',
         'lang': 'zh-cn',
@@ -225,59 +251,59 @@ def register_captcha(organization):
         'callback': 'sm_{}'.format(int(time.time() * 1000))
     }
 
-    r = requests.get(url, params=args, verify=False)
-    resp = json.loads(re.search(r'{}\((.*)\)'.format(args['callback']), r.text).group(1))
+    r = requests.get(url, params=params, verify=False)
+    resp = json.loads(re.search(r'{}\((.*)\)'.format(params['callback']), r.text).group(1))
 
     return resp
 
 
-def verify_captcha(organization, rid, key, distance):
+def verify_captcha(organization, rid, key, distance, captcha_width, captcha_height):
     """
     提交验证
     """
     url = 'https://captcha.fengkongcloud.com/ca/v2/fverify'
 
-    args = {
+    params = {
         'organization': organization,
-        p['k']['k1']: 'default',
-        p['k']['k2']: 'YingYongBao',
-        p['k']['k3']: 'zh-cn',
+        param_names['k1']: 'default',
+        param_names['k2']: 'YingYongBao',
+        param_names['k3']: 'zh-cn',
         'rid': rid,
         'rversion': '1.0.3',
         'sdkver': '1.1.3',
-        'protocol': p['i'],
+        'protocol': param_names['i'],
         'ostype': 'web',
         'callback': 'sm_{}'.format(int(time.time() * 1000))
     }
 
-    args.update(make_mouse_action_args(distance))
+    params.update(get_mouse_action_params(distance, captcha_width, captcha_height))
 
     key = get_encrypt_content(key, 'sshummei', 0)
 
-    for k, v in args.items():
+    for k, v in params.items():
         if len(k) == 2:
-            args[k] = get_encrypt_content(v, key, 1)
+            params[k] = get_encrypt_content(v, key, 1)
 
-    r = requests.get(url, params=args, verify=False)
-    resp = json.loads(re.search(r'{}\((.*)\)'.format(args['callback']), r.text).group(1))
+    r = requests.get(url, params=params, verify=False)
+    resp = json.loads(re.search(r'{}\((.*)\)'.format(params['callback']), r.text).group(1))
 
     return resp
 
 
-def get_verify(organization):
+def get_verify(organization, captcha_width=310, captcha_height=155):
     """
     进行验证
     """
     resp = conf_captcha(organization)
-    protocol_num = re.search(r'build/v1.0.3-(.*?)/captcha-sdk.min.js', resp['detail']['js']).group(1)
+    protocol_num = re.search(r'build/v1.0.\d*-(.*?)/captcha-sdk.min.js', resp['detail']['js']).group(1)
 
-    if not p.get('id') or protocol_num != p['i']:
-        update_protocol(protocol_num, ''.join(['https://', resp['detail']['domains'][0], resp['detail']['js']]))
+    if not param_names.get('id') or protocol_num != param_names['i']:
+        update_param_names(protocol_num, ''.join(['https://', resp['detail']['domains'][0], resp['detail']['js']]))
 
     resp = register_captcha(organization)
 
     rid = resp['detail']['rid']
-    key = resp['detail']['k']
+    key = resp['detail']
 
     domain = resp['detail']['domains'][0]
     fg_uri = resp['detail']['fg']
@@ -294,7 +320,7 @@ def get_verify(organization):
 
     distance = get_distance(fg, bg)
 
-    r = verify_captcha(organization, rid, key, int(distance / 600 * 310))
+    r = verify_captcha(organization, rid, key, int(distance / 600 * 310), captcha_width, captcha_height)
 
     return rid, r
 
