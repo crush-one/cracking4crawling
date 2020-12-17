@@ -57,7 +57,7 @@ print(sign)
 注：当前的验证参数全部按照小红书App调整，用于其他验证（如小红书Web或其他网站、App），可能需要调整其中参数。
 
 ```python
-from xiaohongshu.shumei_slide_captcha import get_verify
+from xiaohongshu.shumei_slide_captcha import ShumeiSlideCaptchaSolver
 
 # organization为验证来源，这里表示小红书
 captcha_solver = ShumeiSlideCaptchaSolver(organization='eR46sBuqF0fdw7KWFLYa')
