@@ -8,7 +8,7 @@
 
 ## 说明：
 
-脚本按目标网站、App命名归档，每个脚本一般都是可以单独导入使用（除非调用了额外的用于加解密的js文件），使用方法可阅读文档或参考其中的test函数。
+脚本按目标网站、App命名归档，每个脚本一般都是可以单独导入使用（除非调用了额外的用于加解密的js文件），使用方法可参考文档或demos目录下的样例代码。
 
 ## 使用方法：
 
@@ -49,7 +49,7 @@ print(sign)
 
 具体实现细节：
 
-- 协议更新：数美会定期自动更新js和接口参数字段（接口里所有两个字母组成的字段名都会在更新修改），通过"/ca/v1/conf"接口返回的js路径可以判断协议版本（如"/pr/auto-build/v1.0.1-33/captcha-sdk.min.js"，表示协议版本号为33），脚本会加载js，并通过匹配确认字段名，用于后续的接口请求。
+- 协议更新：数美会定期自动更新js和接口参数字段（接口里所有形似"ab"的字段名都会在更新中修改），通过"/ca/v1/conf"接口返回的js路径可以判断协议版本（如"/pr/auto-build/v1.0.1-33/captcha-sdk.min.js"，表示协议版本号为33），脚本会加载js，并通过解析js内容自动确认字段名，用于后续的接口请求。
 - 验证参数：验证主要需要三个参数：位移比率、时间、轨迹，使用opencv中的matchTemplate函数计算距离，并随机生成相应的轨迹。
 - 调用加密：提交验证的主要参数都需要加密，使用DES加密。
 - 加密过程："/ca/v1/register"接口会返回一个参数k，使用"sshummei"作为key对它解密，结果为加密参数所需的key，再对参数进行加密。
@@ -59,19 +59,19 @@ print(sign)
 ```python
 from xiaohongshu.shumei_slide_captcha import get_verify
 
-# 表示小红书
-organization = 'eR46sBuqF0fdw7KWFLYa'
+# organization为验证来源，这里表示小红书
+captcha_solver = ShumeiSlideCaptchaSolver(organization='eR46sBuqF0fdw7KWFLYa')
 
 # rid是验证过程中响应的标示，r是最后提交验证返回的响应
-rid, r = get_verify(organization)
-
-print(rid, r)
+rid, risk_level = captcha_solver.get_verify()
 
 # riskLevel为PASS说明验证通过
-if r['riskLevel'] == 'PASS':
+if risk_level == 'PASS':
     # 这里需要向小红书提交rid
     # 具体可抓包查看，接口：/api/sns/v1/system_service/slide_captcha_check
     pass
+
+print(rid, risk_level)
 ```
 
 #### 小红书h5接口签名（X-Sign）

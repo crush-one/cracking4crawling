@@ -25,36 +25,3 @@ def get_sign(data=None, token='', secret='21047C596EAD45209346AE29F0350491'):
 
     h = hmac.new(secret.encode(), content.encode(), sha1)
     return h.hexdigest().upper()
-
-
-def test():
-    # 对请求的data进行签名
-    data = {
-        'common': {
-            # common的内容
-        },
-        'data': {
-            'adultCount': 1,
-            'cabins': ['*'],
-            'childCount': 0,
-            'depDate': '2020-12-09',
-            'dstCode': 'PEK',
-            'infantCount': 0,
-            'orgCode': 'YYZ',
-            'tripType': 1,
-            'type': 3
-        }
-    }
-
-    # /user/ 路径下的接口需要登录，同时加签要传入token、secret（都由服务器返回）
-    # token = ''
-    # secret = ''
-
-    # 生成签名
-    sign = get_sign(data=data)
-
-    print(sign)
-
-
-if __name__ == '__main__':
-    test()
