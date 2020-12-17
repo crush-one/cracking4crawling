@@ -54,7 +54,7 @@ print(sign)
 - 调用加密：提交验证的主要参数都需要加密，使用DES加密。
 - 加密过程："/ca/v1/register"接口会返回一个参数k，使用"sshummei"作为key对它解密，结果为加密参数所需的key，再对参数进行加密。
 
-注：当前的验证参数全部按照小红书App调整，用于其他验证（如小红书Web或其他网站、App），可能需要调整其中参数。
+注：~~当前的验证参数全部按照小红书App调整，用于其他验证（如小红书Web或其他网站、App），可能需要调整其中参数。~~（测试过数美官网首页的滑块验证，可通过）
 
 ```python
 from xiaohongshu.shumei_slide_captcha import ShumeiSlideCaptchaSolver
