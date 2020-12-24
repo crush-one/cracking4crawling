@@ -1,4 +1,4 @@
-# cracking4crawling
+# 小红书sign
 一些爬虫相关的签名、验证码破解，目前已有脚本：
 
 - [小红书App接口签名（shield）](#小红书App接口签名shield)（2020.12.02）
